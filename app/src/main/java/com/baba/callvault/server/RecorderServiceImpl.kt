@@ -60,6 +60,13 @@ open class RecorderServiceImpl(private val apkPath: String) : IRecorderService.S
     @Volatile private var lastVoipSession: VoipCaptureSession? = null
 
     /**
+     * The app's registered live-caption listener, if any — kept here (not just on the session) because
+     * registration can arrive before a VoipCaptureSession exists yet (armed but not yet capturing), and
+     * because a new VoIP session must re-attach whatever the app already asked for.
+     */
+    @Volatile private var liveCaptionListener: ILiveCaptionListener? = null
+
+    /**
      * Serialises scrcpy launch/teardown OFF the binder thread (binder transactions must NOT block on
      * a multi-second scrcpy launch / 2s stop grace). Mirrors the engine's dedicated IO scope.
      */
@@ -281,6 +288,9 @@ open class RecorderServiceImpl(private val apkPath: String) : IRecorderService.S
             }.onFailure { AppLogger.e(TAG, "startVoipRecording failed: ${it.message}", it) }.getOrNull()
             if (active != null) {
                 session = active
+                // Re-attach whatever was already registered — a listener may have registered while the
+                // policy was armed but before this session existed.
+                attachLiveCaption(active)
             } else {
                 runCatching { outFd.close() }
                 session = null
@@ -376,6 +386,40 @@ open class RecorderServiceImpl(private val apkPath: String) : IRecorderService.S
     }
 
     override fun drainDiagnostics(): Array<String> = AppLogger.drainRing().toTypedArray()
+
+    /**
+     * Registers [listener] for live far-party audio, wiring it onto [lastVoipSession] right away if one
+     * is already running, or leaving it for [attachLiveCaption] to pick up when a VoIP session next
+     * starts (see [liveCaptionListener]'s doc — registration can race session creation either way).
+     */
+    override fun registerLiveCaptionListener(listener: ILiveCaptionListener?) {
+        if (listener == null) return
+        liveCaptionListener = listener
+        AppLogger.i(TAG, "registerLiveCaptionListener")
+        lastVoipSession?.let { attachLiveCaption(it) }
+    }
+
+    /**
+     * Clears delivery, but only if [listener] is the one currently registered — comparing the binder
+     * identity ([android.os.IInterface.asBinder]) rather than object identity, since a remote listener
+     * is deserialised to a fresh proxy object on every call. Guards against a stale/late unregister from
+     * a listener the app already replaced from clearing the new one instead.
+     */
+    override fun unregisterLiveCaptionListener(listener: ILiveCaptionListener?) {
+        if (listener == null || liveCaptionListener?.asBinder() != listener.asBinder()) return
+        liveCaptionListener = null
+        AppLogger.i(TAG, "unregisterLiveCaptionListener")
+        lastVoipSession?.liveCaptionSink = null
+    }
+
+    /** Points [session]'s [VoipCaptureSession.liveCaptionSink] at whatever is currently registered. */
+    private fun attachLiveCaption(session: VoipCaptureSession) {
+        val listener = liveCaptionListener
+        session.liveCaptionSink = if (listener == null) null else { pcm, slotNanos ->
+            runCatching { listener.onFarPartyAudio(pcm, slotNanos) }
+                .onFailure { AppLogger.w(TAG, "liveCaptionListener delivery failed: ${it.message}") }
+        }
+    }
 
     /**
      * Runs one named diagnostic dump as the shell user.

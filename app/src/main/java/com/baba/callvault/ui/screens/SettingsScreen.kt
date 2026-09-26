@@ -9,6 +9,7 @@
 package com.baba.callvault.ui.screens
 
 import android.provider.Settings
+import android.content.Intent
 import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -2329,6 +2330,10 @@ internal fun VoipRecordingToggle(onEnabledChange: (Boolean) -> Unit = {}) {
             SettingsDivider()
 
             VoipAppPicker(prefs)
+
+            SettingsDivider()
+
+            LiveCaptionSettings(prefs)
         }
     }
 
@@ -2350,6 +2355,66 @@ internal fun VoipRecordingToggle(onEnabledChange: (Boolean) -> Unit = {}) {
             },
         )
     }
+}
+
+/**
+ * Real-time (during-the-call) translated caption — nested under VoIP recording, since it rides on the
+ * same far-party audio that toggle already taps and is meaningless without it.
+ *
+ * Two things must both be true before this can turn on: the "display over other apps" permission (the
+ * caption is an overlay window) and a translation API key (the user's own — this app never ships or
+ * proxies one). Neither is nagged for up front; the row simply explains what is missing and offers the
+ * one action that fixes it, and the switch itself stays off until both are true.
+ */
+@Composable
+internal fun LiveCaptionSettings(prefs: AppPreferences) {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(prefs.isLiveCaptionEnabled()) }
+    var apiKey by remember { mutableStateOf(prefs.getLiveCaptionApiKey().orEmpty()) }
+    var hasOverlay by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
+
+    // The user leaves Settings to grant the overlay permission and comes back — nothing else in this
+    // screen's lifecycle re-checks it, so re-read on every recomposition while the row is visible.
+    LaunchedEffect(Unit) { hasOverlay = Settings.canDrawOverlays(context) }
+
+    val overlayLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { hasOverlay = Settings.canDrawOverlays(context) }
+
+    SettingsToggleRow(
+        label = stringResource(R.string.settings_live_caption_label),
+        description = stringResource(R.string.settings_live_caption_description),
+        checked = enabled && hasOverlay && apiKey.isNotBlank(),
+        onCheckedChange = { turnOn ->
+            enabled = turnOn
+            prefs.setLiveCaptionEnabled(turnOn)
+        },
+    )
+
+    if (!hasOverlay) {
+        SettingsHint(stringResource(R.string.settings_live_caption_overlay_missing))
+        TextButton(onClick = {
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:${context.packageName}"),
+            )
+            runCatching { overlayLauncher.launch(intent) }
+        }) { Text(stringResource(R.string.settings_live_caption_overlay_grant)) }
+    } else if (apiKey.isBlank()) {
+        SettingsHint(stringResource(R.string.settings_live_caption_key_missing))
+    }
+
+    OutlinedTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            prefs.setLiveCaptionApiKey(it)
+        },
+        label = { Text(stringResource(R.string.settings_live_caption_api_key_label)) },
+        placeholder = { Text(stringResource(R.string.settings_live_caption_api_key_placeholder)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /**

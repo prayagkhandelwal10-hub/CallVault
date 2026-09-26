@@ -184,6 +184,13 @@
     <string name="voip_recording_warning_message">Recording app calls is more tightly regulated than recording phone calls, and in many places every participant must agree first. Please make sure you are allowed to.\n\nThis is experimental: it works with some apps and not others, and an app can block recording at any time in an update.</string>
     <string name="voip_recording_warning_continue">I understand, turn it on</string>
     <string name="voip_recording_arming">Preparing VoIP recording…</string>
+    <string name="settings_live_caption_label">Live translated captions</string>
+    <string name="settings_live_caption_description">Shows a real-time translated caption on screen while an app call is happening, using a free Groq API key (console.groq.com — no card needed). A few seconds behind live speech — inherent to speech translation.</string>
+    <string name="settings_live_caption_api_key_label">Groq API key (free — console.groq.com)</string>
+    <string name="settings_live_caption_api_key_placeholder">gsk_…</string>
+    <string name="settings_live_caption_overlay_missing">Needs the "display over other apps" permission to show captions.</string>
+    <string name="settings_live_caption_overlay_grant">Grant permission</string>
+    <string name="settings_live_caption_key_missing">Add an API key above to turn this on.</string>
     <string name="notif_voip_recording_title">Recording VoIP call</string>
     <string name="notif_voip_recording_text">CallVault is recording an app call.</string>
     <string name="voip_missed_not_ready">An app call was not recorded — CallVault was not ready in time. This can happen for a short while after a phone call ends. The next call should record normally.</string>

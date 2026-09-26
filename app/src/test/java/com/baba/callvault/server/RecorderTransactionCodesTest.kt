@@ -57,6 +57,9 @@ class RecorderTransactionCodesTest {
         assertEquals(first + 23, IRecorderService.Stub.TRANSACTION_captureDiagnostics)
         assertEquals(first + 24, IRecorderService.Stub.TRANSACTION_hostApkPath)
         assertEquals(first + 25, IRecorderService.Stub.TRANSACTION_voipCallAnswered)
+        // Appended for real-time (during-the-call) speech translation.
+        assertEquals(first + 26, IRecorderService.Stub.TRANSACTION_registerLiveCaptionListener)
+        assertEquals(first + 27, IRecorderService.Stub.TRANSACTION_unregisterLiveCaptionListener)
     }
 
     @Test

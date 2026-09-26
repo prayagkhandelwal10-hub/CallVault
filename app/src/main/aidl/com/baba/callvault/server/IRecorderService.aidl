@@ -304,4 +304,29 @@ interface IRecorderService {
      * codes it knows (see RecorderTransactionCodesTest).
      */
     int voipCallAnswered(String packageName);
+
+    /**
+     * Registers [listener] to receive raw far-party PCM audio, live, off an active VoIP capture — for
+     * real-time speech translation DURING the call, as opposed to the on-device transcription that
+     * runs after a recording is saved.
+     *
+     * Delivery starts as soon as a VoipCaptureSession is running (immediately, if one already is) and
+     * continues until the session ends or [unregisterLiveCaptionListener] is called. At most one
+     * listener is held at a time; registering a new one replaces whatever was registered before.
+     * Purely additive — recording behaves identically whether or not a listener is registered, and
+     * whether or not it throws.
+     *
+     * Appended last: transaction codes are positional, and an older host must keep answering the
+     * codes it knows (see RecorderTransactionCodesTest).
+     */
+    void registerLiveCaptionListener(ILiveCaptionListener listener);
+
+    /**
+     * Stops delivery to [listener]. A no-op if nothing is registered, or if a different listener is
+     * currently held (so a stale caller can never clear someone else's registration).
+     *
+     * Appended last: transaction codes are positional, and an older host must keep answering the
+     * codes it knows (see RecorderTransactionCodesTest).
+     */
+    void unregisterLiveCaptionListener(ILiveCaptionListener listener);
 }

@@ -75,6 +75,19 @@ internal class VoipCaptureSession(
     @Volatile var farPartyHeard: Boolean = false
         private set
 
+    /**
+     * Real-time hook for far-party audio, for live speech translation DURING the call — as opposed to
+     * [com.baba.callvault.transcription.TranscriptionEngine], which runs after the file is closed.
+     *
+     * Purely additive: null by default, set by [RecorderServiceImpl] only when the app has registered
+     * an [ILiveCaptionListener]. Invoked once per slot from the capture loop's own thread with that
+     * slot's far-party PCM (the same bytes the muxer is about to write) and the slot's capture-time
+     * timestamp. MUST NOT block — it runs inline with live capture, so a slow sink delays every slot
+     * behind it — and any exception it throws is caught at the call site so a translation feature can
+     * never cost a recording.
+     */
+    @Volatile var liveCaptionSink: ((pcm: ByteArray, slotNanos: Long) -> Unit)? = null
+
     /** Speaker turns for this capture, encoded; empty until the loop finishes. */
     @Volatile private var speakerTurnsEncoded: String = ""
 
@@ -312,6 +325,13 @@ internal class VoipCaptureSession(
                 // so the paused stretch is simply absent from the file. Same result as the carrier
                 // path, reached without going anywhere near the microphone.
                 if (pauseRequested.get() || suspended.get()) continue
+                // Real-time speech translation hook (additive, see liveCaptionSink's doc). Delivered here,
+                // before the stereo interleave/downmix, so a listener sees the same far-party audio the
+                // file will contain, for this exact slot. Never allowed to touch the recording itself.
+                liveCaptionSink?.let { sink ->
+                    runCatching { sink(f, slotNanos) }
+                        .onFailure { AppLogger.w(TAG, "liveCaptionSink failed: ${it.message}") }
+                }
                 var o = 0
                 var farPeak = 0
                 for (i in 0 until CHUNK_BYTES step 2) {

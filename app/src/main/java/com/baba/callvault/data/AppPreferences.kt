@@ -222,6 +222,12 @@ class AppPreferences(context: Context) {
         // VOIP_RECORDING_ENABLED is on.
         const val VOIP_AUTO_START = true
 
+        // --- Live (real-time) speech translation ---
+        // OFF by default: needs both an overlay permission grant and a cloud API key, neither of
+        // which exists until the user sets them up. Meaningless unless VOIP_RECORDING_ENABLED is on
+        // too — captioning rides on the same far-party audio the VoIP capture already taps.
+        const val LIVE_CAPTION_ENABLED = false
+
         // --- Audio/Scrcpy Quality ---
         val AUDIO_SOURCE = ScrcpyAudioSource.VOICE_CALL.cliKey
         val AUDIO_CODEC = ScrcpyAudioCodec.OPUS.cliKey
@@ -323,7 +329,9 @@ class AppPreferences(context: Context) {
         HANDOFF_PERSIST_ENABLED("handoff_persist_enabled"),
         VOIP_RECORDING_ENABLED("voip_recording_enabled"),
         VOIP_AUTO_START("voip_auto_start"),
-        
+        LIVE_CAPTION_ENABLED("live_caption_enabled"),
+        LIVE_CAPTION_API_KEY("live_caption_api_key"),
+
         // --- Automation ---
         CARRIER_RECORDING_ENABLED("carrier_recording_enabled"),
         AUTO_RECORD_INCOMING("auto_record_incoming"),
@@ -620,6 +628,22 @@ class AppPreferences(context: Context) {
      */
     fun isVoipAutoStartEnabled() = getBoolean(Key.VOIP_AUTO_START, DefaultsValue.VOIP_AUTO_START)
     fun setVoipAutoStartEnabled(enabled: Boolean) = setBoolean(Key.VOIP_AUTO_START, enabled)
+
+    /**
+     * Whether to show a live, translated caption of the far party's speech DURING an app call —
+     * as opposed to the on-device transcript [com.baba.callvault.transcription.TranscriptionEngine]
+     * produces after the recording is saved. Requires the overlay permission and an API key; see
+     * [getLiveCaptionApiKey]. Off by default (see [DefaultsValue.LIVE_CAPTION_ENABLED]).
+     */
+    fun isLiveCaptionEnabled() = getBoolean(Key.LIVE_CAPTION_ENABLED, DefaultsValue.LIVE_CAPTION_ENABLED)
+    fun setLiveCaptionEnabled(enabled: Boolean) = setBoolean(Key.LIVE_CAPTION_ENABLED, enabled)
+
+    /**
+     * The user's own API key for the cloud speech-translation call live captioning makes per audio
+     * window. Stored as entered; never logged, never sent anywhere but the translation endpoint.
+     */
+    fun getLiveCaptionApiKey() = getString(Key.LIVE_CAPTION_API_KEY)
+    fun setLiveCaptionApiKey(key: String?) = setString(Key.LIVE_CAPTION_API_KEY, key?.trim())
 
     /**
      * Whether "Resilient recording" (the audio-capture handoff, Option B) is enabled. Default false =

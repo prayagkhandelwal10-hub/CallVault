@@ -44,6 +44,7 @@ import com.baba.callvault.system.interop.MetadataSidecar
 import com.baba.callvault.data.recordings.RecordingsRepository
 import com.baba.callvault.data.transcripts.FlagRepository
 import com.baba.callvault.data.voip.VoipAppPolicy
+import com.baba.callvault.livecaption.LiveCaptionCoordinator
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -183,6 +184,10 @@ object VoipRecordingCoordinator {
         isSuspendedForCarrierCall = false
         VoipRecordingNotification.show(context, appLabel)
         AppLogger.i(TAG, "VoIP recording started -> $fileName")
+        // Additive: real-time translation captions, riding on the same far-party audio just tapped
+        // above. Never allowed to affect whether this recording itself succeeds.
+        runCatching { LiveCaptionCoordinator.start(context) }
+            .onFailure { AppLogger.w(TAG, "Live caption start failed: ${it.message}") }
         lateCaller = null
         lateCallerJob?.cancel()
         // The notification is the only place the name exists, and it may not be posted yet at the
@@ -488,6 +493,8 @@ object VoipRecordingCoordinator {
     fun onCallEnded(context: Context) {
         if (!recording) return
         recording = false
+        runCatching { LiveCaptionCoordinator.stop(context) }
+            .onFailure { AppLogger.w(TAG, "Live caption stop failed: ${it.message}") }
         val saf = pending
         pending = null
         lateCallerJob?.cancel()
