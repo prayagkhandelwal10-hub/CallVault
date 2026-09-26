@@ -123,7 +123,7 @@ object LiveCaptionCoordinator {
     }
 
     private suspend fun onChunk(apiKey: String, pcm: ByteArray) {
-        val windowToSend: ByteArray? = bufferLock.withLock {
+        val windowToSend = bufferLock.withLock {
             buffer.write(pcm)
             var i = 0
             while (i + 1 < pcm.size) {
