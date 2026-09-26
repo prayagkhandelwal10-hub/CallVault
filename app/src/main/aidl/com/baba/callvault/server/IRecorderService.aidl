@@ -8,6 +8,12 @@
 
 package com.baba.callvault.server;
 
+// AIDL requires an explicit import for every custom interface/parcelable type it references, even one
+// declared in this same package — unlike plain Java, the aidl compiler does not resolve same-package
+// types implicitly. Without this line, compileDebugAidl fails with "Couldn't find import for class
+// ILiveCaptionListener" even though the .aidl file sits right next to this one.
+import com.baba.callvault.server.ILiveCaptionListener;
+
 /**
  * CallVault Plan 5 — PRODUCTION recorder command channel.
  *
